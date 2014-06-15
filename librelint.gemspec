@@ -12,4 +12,5 @@ Gem::Specification.new do |s|
     s.extra_rdoc_files = ['README.md']
     s.homepage    = 'https://github.com/d4l3k/librelint'
     s.require_paths = ['lib']
+    s.bindir = 'bin'
 end

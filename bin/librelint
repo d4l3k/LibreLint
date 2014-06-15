@@ -1,0 +1,10 @@
+#!/usr/bin/env ruby
+
+require_relative '../lib/librelint.rb'
+
+binding.pry if ARGV.include? '--pry'
+
+parts = ARGF.filename.split('.')
+outname = parts[0...-1].join('.')+'-linted.'+parts.last
+puts "Linting #{ARGF.filename}"
+File.write(outname, LibreLint.lint_file(ARGF.file))

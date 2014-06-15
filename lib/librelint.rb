@@ -6,11 +6,13 @@ module LibreLint
         @@indent_str
     end
     class Language
-        attr_reader :name, :rules, :indent
-        def initialize name, block, indent: true
+        attr_reader :name, :rules, :indent, :extension, :extend
+        def initialize name, block, indent: true, extension: nil, extend: []
             @name = name.to_s
             @indent = indent
             @rules = {}
+            @extension = extension
+            @extend = [extend].flatten
             LibreLint.languages[@name] = self
             instance_eval(&block)
         end
@@ -20,6 +22,18 @@ module LibreLint
     end
     def self.languages
         @@languages
+    end
+    def self.lint_file file
+        extension = file.path.split(".").last
+        language = nil
+        @@languages.each do |name, lang|
+            if !lang.extension.nil? && lang.extension.downcase == extension.downcase
+                language = lang
+            end
+        end
+        raise "Unable to detect language of file #{file.path}. Extension: #{extension}" if language.nil?
+        linter = Linter.new(file.read, language: language)
+        linter.lint
     end
     class Linter
         attr_reader :pos, :language, :text, :line_pos, :indent_level, :start_indent
@@ -44,11 +58,15 @@ module LibreLint
         def lint
             while @pos < @text.length
                 finished = @done && self.instance_exec(&@done)
-                if char != "\n" && !finished
-                    language.rules.each do |name, rule|
-                        self.instance_exec(&rule)
+                if !finished
+                    langs = language.extend.map{|l| LibreLint.languages[l]} + [language]
+                    langs.each do |lang|
+                        lang.rules.each do |name, rule|
+                            self.instance_exec(&rule)
+                        end
                     end
-                elsif language.indent
+                end
+                if char == "\n" && language.indent
                     # Change indentation
                     insert = @line_pos.last || 0
                     end_pos = insert
@@ -59,8 +77,12 @@ module LibreLint
                     indent_amount = to_indent >= 0 ? to_indent : 0
                     insert_str = LibreLint.indent_str*indent_amount
                     #insert_str  = "#{indent_amount} #{insert_str}"
-                    @text = @text[0...insert] + insert_str + @text[end_pos..-1]
-                    @pos += insert_str.length - (end_pos - insert)
+
+                    # This is to make sure that the first line indentation doesn't change.
+                    if !@line_pos.empty?
+                        @text = @text[0...insert] + insert_str + @text[end_pos..-1]
+                        @pos += insert_str.length - (end_pos - insert)
+                    end
                     @line_pos << @pos + 1
                     @start_indent = @indent_level
                     # binding.pry if indent_amount > 0
@@ -94,10 +116,16 @@ module LibreLint
                 okay.include?(token[-1])
             match && before && after
         end
-        def match chars: nil, words: nil
+        def match chars: nil, words: nil, padding: true
             @_matched = nil
             if !words.nil?
-                @_matched = multi_gap(words)
+                if padding
+                    @_matched = multi_gap(words)
+                else
+                    [words].flatten.each do |word|
+                        @_matched = word if @text[@pos, word.length] == word
+                    end
+                end
             end
             if !@_matched.nil? || !chars.nil? && chars.include?(char) && @_matched = char
                 def matched
@@ -108,6 +136,9 @@ module LibreLint
         end
         def pos
             @pos
+        end
+        def line_start
+            @line_pos.last || 0
         end
         def start_of_line
             @pos == 0 || @text[@line_pos.last...@pos].strip.empty?
@@ -124,6 +155,17 @@ module LibreLint
         def outdent count: 1
             indent(count: -count)
         end
+        def issue msg
+            return if ARGV.include?('-q')
+            puts "Issue: #{msg}"
+            line = @text[line_start..@text.index("\n", line_start + 1)]
+            white = line.length - line.lstrip.length
+            lang = language.name.split(":")[0]
+            pretty_out = CodeRay.scan(line.lstrip, lang).term
+            puts "#{@line_pos.length + 1}: #{pretty_out}"
+            caret_pos = (line.length - 1 - white + 4) % (IO.console.winsize[1])
+            puts ' '*caret_pos + '^'
+        end
     end
     def self.lint text
         linter = Linter.new text
@@ -131,13 +173,12 @@ module LibreLint
     end
 end
 
-def language name, indent: true, &block
-    LibreLint::Language.new(name, block, indent: indent)
+def language name, indent: true, extension: nil, extend: [], &block
+    LibreLint::Language.new(name, block, indent: indent, extension: extension, extend: extend)
 end
-
-require_relative 'librelint/languages/ruby.rb'
+path = File.join(File.dirname(__FILE__), 'librelint/languages/*.rb')
+Dir.glob(path).each do |file|
+    require_relative file
+end
+require 'io/console'
 require 'pry'
-
-parts = ARGF.filename.split('.')
-outname = parts[0...-1].join('.')+'-linted.'+parts.last
-File.write(outname, LibreLint.lint(ARGF.read))

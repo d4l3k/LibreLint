@@ -1,4 +1,4 @@
-language "Ruby" do
+language "Ruby", extension: 'rb' do
     rule "Indentation", type: :indentation do
         match chars: '{([', words: %w{do class begin def module} do
             indent
@@ -14,7 +14,7 @@ language "Ruby" do
             @pos = @text.index("\n", @pos ) - 1
         end
     end
-    rule "String Handling", type: :selection do
+    rule "String Handling", type: :control do
         match chars: '"\'`' do
             @pos += matched.length
             matched_letter = matched
@@ -35,11 +35,19 @@ language "Ruby" do
             end
         end
     end
+    rule "Line Length", type: :style do
+        match chars: "\n" do
+            if @pos - line_start > 90
+                issue 'Line is longer than 90 characters.'
+            end
+        end
+    end
     language "Ruby:String", indent: false do
-        rule "Ruby sub", type: :selection do
-            match words: '#{' do
+        rule "Ruby sub", type: :control do
+            match words: '#{', padding: false do
+                @pos += matched.length
                 handle_by 'Ruby', {} do
-                    match chars: '}' do
+                    match chars: '}', padding: false do
                         @text[@pos - 1] != '\\'
                     end
                 end
