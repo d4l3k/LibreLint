@@ -1,9 +1,9 @@
 require 'pry'
 
-class RBParser
-    def initialize str
+class RBLinter
+    def initialize str, indent: '    '
         @string = str
-        @indent_char = '    '
+        @indent_char = indent
     end
     def walk
         lines = @string.split("\n")
@@ -20,6 +20,7 @@ class RBParser
                 is_end = pos == line.length - 1
                 inner_type = string_type.split(":").last
                 if !is_string
+                    # Indentation
                     if "{([".include? char
                         indent += 1
                     elsif "})]".include? char
@@ -32,6 +33,7 @@ class RBParser
                         indent -= 1
                     elsif multi_gap(line, pos, ['else', 'elsif'])
                         start_indent = indent - 1
+                    # String Handling
                     elsif '"\''.include? char
                         is_string = true
                         string_type = char
@@ -40,6 +42,27 @@ class RBParser
                     elsif line[pos, 3] == '%r{'
                         is_string = true
                         string_type = '%r{'
+                    # Padding
+                    elsif ',' == char
+                        if pos != 0 && line[pos - 1] == " "
+                           line = line[0...(pos - 1)] + line[(pos)..-1]
+                           pos -= 1
+                        end
+                        if !is_end && line[pos + 1] != " "
+                            line.insert(pos + 1, " ")
+                            pos += 1
+                        end
+                    elsif '+-='.include?(char)
+                        if pos != 0 && line[pos - 1] != " "
+                           line = line[0...(pos - 1)] + line[(pos)..-1]
+                           pos -= 1
+                        end
+                        n = '1234567890'
+                        # TODO
+                        if !is_end && line[pos + 1] != " "
+                            line.insert(pos + 1, " ")
+                            pos += 1
+                        end
                     end
                 else
                     if !inner_type
@@ -62,7 +85,7 @@ class RBParser
             if !start_string
                 less = start_indent < indent ? start_indent : indent
                 capped = less > 0 ? less : 0
-                line = "#{less} " + @indent_char*capped + line
+                line = @indent_char*capped + line
             end
 
             lines[index] = line
@@ -85,8 +108,10 @@ class RBParser
         false
     end
     def self.parse str
-        p = RBParser.new(str)
+        p = self.new(str)
         p.walk
     end
 end
-File.write('foo.rb', RBParser.parse(ARGF.read))
+parts = ARGF.filename.split('.')
+outname = parts[0...-1].join('.')+'-linted.'+parts.last
+File.write(outname, RBLinter.parse(ARGF.read))
