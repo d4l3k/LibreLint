@@ -106,6 +106,9 @@ module LibreLint
                 yield
             end
         end
+        def pos
+            @pos
+        end
         def start_of_line
             @pos == 0 || @text[@line_pos.last...@pos].strip.empty?
         end

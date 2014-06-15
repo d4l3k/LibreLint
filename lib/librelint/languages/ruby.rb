@@ -13,6 +13,8 @@ language "Ruby" do
         match chars: '#' do
             @pos = @text.index("\n", @pos ) - 1
         end
+    end
+    rule "String Handling", type: :selection do
         match chars: '"\'`' do
             @pos += matched.length
             matched_letter = matched
@@ -35,6 +37,13 @@ language "Ruby" do
     end
     language "Ruby:String", indent: false do
         rule "Ruby sub", type: :selection do
+            match words: '#{' do
+                handle_by 'Ruby', {} do
+                    match chars: '}' do
+                        @text[@pos - 1] != '\\'
+                    end
+                end
+            end
         end
     end
 end
