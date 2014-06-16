@@ -7,4 +7,9 @@ language 'SCSS', extension: 'scss' do
             outdent
         end
     end
+    rule 'Comments', type: :control do
+        match words: '//', padding: false do
+            next_line
+        end
+    end
 end

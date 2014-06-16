@@ -97,6 +97,9 @@ module LibreLint
         def char
             @text[@pos]
         end
+        def next_line
+            @pos = @text.index("\n", @pos ) - 1
+        end
         def multi_gap tokens
             [tokens].flatten.each do |token|
                 if gapped(token)

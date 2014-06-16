@@ -11,7 +11,7 @@ language "Ruby", extension: 'rb' do
             indent if start_of_line
         end
         match chars: '#' do
-            @pos = @text.index("\n", @pos ) - 1
+            next_line
         end
     end
     rule "String Handling", type: :control do
