@@ -28,4 +28,7 @@ language 'JavaScript', extension: 'js' do
 
         end
     end
+    rule 'fixjsstyle', type: :external do
+        # TODO: Implement this
+    end
 end

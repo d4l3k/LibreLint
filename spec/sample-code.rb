@@ -1,7 +1,7 @@
 # It was the night before Christmas and all through the house, not a creature was coding: UTF-8, not even with a mouse.
 require 'bundler'
 require 'sass'
-Bundler.require(:default)
+Bundler.require( :default )
 require 'tempfile'
 require 'digest/md5'
 

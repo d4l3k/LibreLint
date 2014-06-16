@@ -1,7 +1,21 @@
 module LibreLint
-    attr_accessor :languages, :indent_str
+    attr_accessor :languages, :indent_str, :quiet, :fix
     @@languages = {}
-    @@indent_str = '    '
+    @@indent_str = '  '
+    @@quiet = false
+    @@fix = true
+    def self.fix
+        @@fix
+    end
+    def self.fix= n
+        @@fix = n
+    end
+    def self.quiet
+        @@quiet
+    end
+    def self.quiet= n
+        @@quiet = n
+    end
     def self.indent_str
         @@indent_str
     end
@@ -62,11 +76,12 @@ module LibreLint
                     langs = language.extend.map{|l| LibreLint.languages[l]} + [language]
                     langs.each do |lang|
                         lang.rules.each do |name, rule|
+                            @padding = true
                             self.instance_exec(&rule)
                         end
                     end
                 end
-                if char == "\n" && language.indent
+                if char == "\n" && language.indent && LibreLint.fix
                     # Change indentation
                     insert = @line_pos.last || 0
                     end_pos = insert
@@ -119,7 +134,7 @@ module LibreLint
                 okay.include?(token[-1])
             match && before && after
         end
-        def match chars: nil, words: nil, padding: true
+        def match chars: nil, words: nil, padding: @padding
             @_matched = nil
             if !words.nil?
                 if padding
@@ -158,16 +173,54 @@ module LibreLint
         def outdent count: 1
             indent(count: -count)
         end
-        def issue msg
-            return if ARGV.include?('-q')
-            puts "Issue: #{msg}"
+        def issue msg, pos: @pos
+            return if LibreLint.quiet
+            column = @pos - line_start
+            puts "Issue[#{@line_pos.length + 1}:#{column}]: #{msg}"
             line = @text[line_start..@text.index("\n", line_start + 1)]
             white = line.length - line.lstrip.length
             lang = language.name.split(":")[0]
             pretty_out = CodeRay.scan(line.lstrip, lang).term
-            puts "#{@line_pos.length + 1}: #{pretty_out}"
-            caret_pos = (line.length - 1 - white + 4) % (IO.console.winsize[1])
+            puts '    '+pretty_out
+            caret_pos = (column - white + 4) % (IO.console.winsize[1])
             puts ' '*caret_pos + '^'
+        end
+        def fix
+            if LibreLint.fix
+                yield
+            end
+        end
+        def no_space loc
+            before = " \n".include?(@text[@pos - 1])
+            after = " \n".include?(@text[@pos + matched.length])
+            if loc == :before && before || loc == :after && after || loc == :around && before && after
+                issue "There should not be a space #{loc.to_s} a '#{matched}'.", pos: @pos
+                fix do
+                    if [:before, :around].include?(loc) && before
+                        @text = @text[0...@pos - 1] + @text[@pos..-1]
+                        @pos -= 1
+                    end
+                    if [:after, :around].include?(loc) && after
+                        @text = @text[0..@pos] + @text[@pos+2..-1]
+                    end
+                end
+            end
+        end
+        def space loc
+            before = !" \n".include?(@text[@pos - 1])
+            after = !" \n".include?(@text[@pos + matched.length])
+            if loc == :before && before || loc == :after && after || loc == :around && before && after
+                issue "There should be a space #{loc.to_s} a '#{matched}'.", pos: @pos
+                fix do
+                    if [:before, :around].include?(loc) && before
+                        @text.insert(@pos, ' ')
+                        @pos += 1
+                    end
+                    if [:after, :around].include?(loc) && after
+                        @text.insert(@pos + matched.length, ' ')
+                    end
+                end
+            end
         end
     end
     def self.lint text

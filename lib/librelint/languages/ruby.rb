@@ -14,6 +14,44 @@ language "Ruby", extension: 'rb' do
             next_line
         end
     end
+    rule "Whitespace", type: :style do
+        @padding = false
+        match chars: ',{' do
+            space :after
+        end
+        match chars: ':' do
+            if !' :({['.include?(@text[@pos - 1]) && @text[@pos + 1] != ':'
+                space :after
+            end
+        end
+        match chars: '[(' do
+            no_space :after
+        end
+        match chars: '])' do
+            no_space :before
+        end
+        match words: %w(== != || && >= <= => ||=) do
+            space :around
+        end
+        match chars: '}' do
+            space :before
+        end
+        match chars: '+' do
+            if @text[@pos + 1] != '='
+                space :around
+            end
+        end
+        match chars: '-' do
+            if !'0987654321='.include?(@text[@pos +1])
+                space :around
+            end
+        end
+        match chars: '*' do
+            if !'*='.include?(@text[@pos + 1]) && @text[pos - 1] != '*'
+                space :around
+            end
+        end
+    end
     rule "String Handling", type: :control do
         match chars: '"\'`' do
             @pos += matched.length

@@ -27,7 +27,7 @@
     // Variable: object WebSyncData;
     // This contains the data for the document. This is automatically synced with the server.
     WebSyncData = <%= MultiJson.dump(doc.body) %>;
-
+    
     // Set document title.
     document.title = <%= MultiJson.dump(doc.name + " - WebSync") %>;
 </script>

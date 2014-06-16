@@ -3,7 +3,7 @@
 require_relative '../lib/librelint.rb'
 
 binding.pry if ARGV.include? '--pry'
-
+LibreLint.quiet = true if ARGV.include?('-q')
 parts = ARGF.filename.split('.')
 outname = parts[0...-1].join('.')+'-linted.'+parts.last
 puts "Linting #{ARGF.filename}"
